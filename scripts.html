@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GangCoin</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            background-color: black;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            color: white;
+        }
+
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: no
+                no-repeat center center;
+            background-size: cover;
+            opacity: 0.5;
+            z-index: -1;
+        }
+
+        .header {
+            text-align: center;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+
+        .header h1 {
+            font-weight: bold;
+            font-size: 36px;
+            color: gold;
+            margin: 0;
+        }
+
+        .statement {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #FFD700;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: rgba(255, 215, 0, 0.2);
+            border: 2px solid gold;
+            border-radius: 8px;
+        }
+
+        .coin {
+            width: 180px;
+            height: 180px;
+            background: radial-gradient(circle, gold 60%, black);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 30px auto;
+            font-size: 48px;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .coin:active {
+            transform: scale(1.2);
+        }
+
+        .coin-balance {
+            text-align: center;
+            font-size: 24px;
+            margin: 20px;
+        }
+
+        .page {
+            display: none;
+            padding: 20px;
+            margin: 10px;
+            border: 2px solid gold;
+            border-radius: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .task {
+            border: 2px solid gold;
+            padding: 10px;
+            margin: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            background-color: rgba(0, 0, 0, 0.9);
+            padding: 10px;
+        }
+
+        .nav-item {
+            text-align: center;
+            cursor: pointer;
+            color: white;
+        }
+    </style>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const tg = window.Telegram.WebApp;
+            const username = tg.initDataUnsafe?.user?.username || "Anonymous";
+            const params = new URLSearchParams(window.location.search);
+            const referrer = params.get('ref');
+            const referralLink = `https://t.me/M_GangBot?ref=${username}`;
+            const balanceKey = `${username}-balance`;
+            const referralsKey = `${username}-referrals`;
+            const tasksCompletedKey = `${username}-tasks-completed`;
+
+            let balance = parseInt(localStorage.getItem(balanceKey)) || 0;
+            let referrals = parseInt(localStorage.getItem(referralsKey)) || 0;
+            let tasksCompleted = JSON.parse(localStorage.getItem(tasksCompletedKey)) || {};
+
+            if (referrer && referrer !== username) {
+                awardReferral(referrer);
+            }
+
+            function awardReferral(referrer) {
+                let referrerBalance = parseInt(localStorage.getItem(`${referrer}-balance`)) || 0;
+                referrerBalance += 2000;
+                localStorage.setItem(`${referrer}-balance`, referrerBalance);
+
+                let referrerReferrals = parseInt(localStorage.getItem(`${referrer}-referrals`)) || 0;
+                referrerReferrals++;
+                localStorage.setItem(`${referrer}-referrals`, referrerReferrals);
+            }
+
+            function saveState() {
+                localStorage.setItem(balanceKey, balance);
+                localStorage.setItem(referralsKey, referrals);
+                localStorage.setItem(tasksCompletedKey, JSON.stringify(tasksCompleted));
+            }
+
+            function updateUI() {
+                document.getElementById('coin-balance').innerText = `Coin Balance: ${balance}`;
+                document.getElementById('referrals-count').innerText = `Referrals: ${referrals}`;
+                updateRankings();
+            }
+
+            function updateRankings() {
+                const rankList = document.getElementById('rank-list');
+                const users = Object.keys(localStorage)
+                    .filter(key => key.endsWith('-balance'))
+                    .map(key => ({
+                        user: key.replace('-balance', ''),
+                        balance: parseInt(localStorage.getItem(key)),
+                    }))
+                    .sort((a, b) => b.balance - a.balance)
+                    .slice(0, 10);
+
+                rankList.innerHTML = users.map(u => `<li>${u.user}: ${u.balance} coins</li>`).join('');
+            }
+
+            document.getElementById('coin').addEventListener('click', () => {
+                balance++;
+                updateUI();
+                saveState();
+            });
+
+            document.getElementById('referral-link').addEventListener('click', () => {
+                navigator.clipboard.writeText(referralLink).then(() => {
+                    alert('Referral link copied to clipboard!');
+                });
+            });
+
+            document.querySelectorAll('.task a').forEach(task => {
+                task.addEventListener('click', (event) => {
+                    const taskId = event.target.getAttribute('href');
+                    if (!tasksCompleted[taskId]) {
+                        tasksCompleted[taskId] = true;
+                        balance += 2000;
+                        updateUI();
+                        saveState();
+                    } else {
+                        alert('Task already completed!');
+                    }
+                });
+            });
+
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const targetId = item.getAttribute('data-target');
+                    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+                    document.getElementById(targetId).classList.add('active');
+                });
+            });
+
+            updateUI();
+        });
+    </script>
+</head>
+<body>
+    <div class="background"></div>
+
+    <div class="header">
+        <h1>GangCoin</h1>
+    </div>
+
+    <div class="statement">
+        Maximum coins capped at 100B. Listing 2 weeks after mining the total amount.
+    </div>
+
+    <main id="home-page" class="page active">
+        <div class="coin" id="coin">$GANG</div>
+        <div class="coin-balance" id="coin-balance"></div>
+    </main>
+
+    <section id="friends-page" class="page">
+        <h2>Friends</h2>
+        <p>Your Referral Link: <a href="#" id="referral-link">Copy Link</a></p>
+        <p id="referrals-count"></p>
+    </section>
+
+    <section id="tasks-page" class="page">
+        <h2>Earn Coins</h2>
+        <div class="task">
+            <a href="https://t.me/gangcoinmjr" target="_blank">Follow GangCoin Telegram</a>
+        </div>
+        <div class="task">
+            <a href="https://x.com/GangCoinbot?t=PHuBNDHQFO9-L79I8_sYVg&s=09" target="_blank">Follow on X</a>
+        </div>
+    </section>
+
+    <section id="rank-page" class="page">
+        <h2>Top 10 Users</h2>
+        <ul id="rank-list"></ul>
+    </section>
+
+    <div class="bottom-nav">
+        <div class="nav-item" data-target="home-page">⛏️ Mine</div>
+        <div class="nav-item" data-target="friends-page">🤗 Friends</div>
+        <div class="nav-item" data-target="tasks-page">💲 Tasks</div>
+        <div class="nav-item" data-target="rank-page">🪜 Ranking</div>
+    </div>
+</body>
+</html>
